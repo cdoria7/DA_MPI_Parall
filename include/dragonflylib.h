@@ -36,8 +36,6 @@ typedef struct Dragonfly_t {
     double *position;
     double *velocity;
     double fitness;
-    Neighbour *neighbours;
-    int neighbour_no;
 } Dragonfly;
 
 typedef struct result_t {
@@ -57,6 +55,7 @@ void *mycalloc(long dimension, int size, int id);
 /****** ALGORITHM FUNCTION SUPPORT ********/
 
 void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dimension, int upperbound, int lowerbound, int rank, int seed);
+void init_neighbours(Neighbour *neighbours, int dimension);
 void add_neighbours(Neighbour **neighbour, int neighbours_no, int dimension);
 double update_radius(int ub, int lb, int iter, int max_iter);
 void update_weight(int iter, int max_iter, double *w, double *s, double *a, double *c, double *f, double *e);
@@ -69,9 +68,9 @@ int validate_neighbour(double *dist, double radius, int dim);
 
 /************* BEHAVIOURS FUNCTIONS ************/
 double *levy_func(long dim, int seed);
-void separation_dragonfly(double *separation, Dragonfly dragonflies, long dim);
-void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, long neighbours_no);
-void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, long dim);
+void separation_dragonfly(double *separation, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim);
+void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, int neighbour_no);
+void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim);
 void food_attraction_dragonfly(double *food_attraction, double *position, double *food_position, long dim);
 void predator_distraction_dragonfly(double *predator_distraction, double *position, double *predator_position, long dim);
 

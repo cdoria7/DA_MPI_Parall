@@ -72,6 +72,10 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     Dragonfly *dragonflies = (Dragonfly *)(double *)mycalloc(dragonfly_proc_no, sizeof(Dragonfly), id);
     init_struct_dragonfly(dragonflies, dragonfly_proc_no, dim, upper_bound, lower_bound, id, seed);
 
+    int neighbour_no = 0;
+    Neighbour *neighbours = NULL;
+    init_neighbours(neighbours, dim);
+
     /*********************** Global Variable ***********************/
     HotSpot food_value, pred_value;
 
@@ -171,33 +175,35 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
         /** Broadcasting the Global Food and Global Pred position**/
         // if (prec_food_value >= food_value.value)
         MPI_Bcast(food_pos, 1, MPI_POSITION_TYPE, food_value.rank, MPI_COMM_WORLD);
-
         // if (prec_pred_value >= pred_value.value)
         MPI_Bcast(pred_pos, 1, MPI_POSITION_TYPE, pred_value.rank, MPI_COMM_WORLD);
 
         /** Add neighbours **/
         for (int df = 0; df < dragonfly_proc_no; df++) {
+
             int index = 0;
-            dragonflies[df].neighbour_no = 0;
+            neighbour_no = 0;
+
             for (int j = 0; j < dragonfly_proc_no; j++) {
                 if (df != j) {
+
                     dist = distance(dragonflies[df].position, dragonflies[j].position, dim);
+
                     /** Validate and Add Neighbours to List of Neighbours **/
                     if (validate_neighbour(dist, radius, dim)) {
-                        dragonflies[df].neighbour_no += 1;
-                        add_neighbours(&dragonflies[df].neighbours, dragonflies[df].neighbour_no, dim);
-                        array_copy(dragonflies[df].neighbours[index].position, dragonflies[j].position, dim);
-                        array_copy(dragonflies[df].neighbours[index].velocity, dragonflies[j].velocity, dim);
+
+                        neighbour_no += 1;
+                        add_neighbours(&neighbours, neighbour_no, dim);
+                        array_copy(neighbours[index].position, dragonflies[j].position, dim);
+                        array_copy(neighbours[index].velocity, dragonflies[j].velocity, dim);
+
                         index += 1;
                     }
                 }
             }
-        }
-
-        for (int df = 0; df < dragonfly_proc_no; df++) {
 
             w = 0.9 - iter * ((0.9 - 0.4) / iteration);
-            my_c = 0.1 - iter * ((0.1 - 0.0) / (iteration / 2.0));
+            my_c = 0.1 - iter * (0.1 / (iteration / 2.0));
 
             if (my_c < 0)
                 my_c = 0.0;
@@ -211,25 +217,18 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
             /** Update radius **/
             radius = update_radius(upper_bound, lower_bound, iter, iteration);
 
-            // /** Reset Variables **/
-            // memset(separation, 0, dim);
-            // memset(alignment, 0, dim);
-            // memset(cohesion, 0, dim);
-            // memset(food_attraction, 0, dim);
-            // memset(pred_distraction, 0, dim);
-
             /** Compute Separation **/
-            if (dragonflies[df].neighbour_no > 0)
-                separation_dragonfly(separation, dragonflies[df], dim);
+            if (neighbour_no > 0)
+                separation_dragonfly(separation, dragonflies[df], neighbours, neighbour_no, dim);
 
             /** Compute Alignment **/
-            if (dragonflies[df].neighbour_no > 0)
-                alignment_dragonfly(alignment, dragonflies[df].neighbours, dim, dragonflies[df].neighbour_no);
+            if (neighbour_no > 0)
+                alignment_dragonfly(alignment, neighbours, dim, neighbour_no);
             else
                 array_copy(alignment, dragonflies[df].velocity, dim);
 
             /** Compute Cohesion **/
-            cohesion_dragonfly(cohesion, dragonflies[df], dim);
+            cohesion_dragonfly(cohesion, dragonflies[df], neighbours, neighbour_no, dim);
 
             /** Compute Food Attraction **/
             food_distance = distance(dragonflies[df].position, food_pos, dim);
@@ -256,7 +255,7 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
             /** Update Position and Velocity of Dragonfly **/
             if (food_near_dragonfly(food_distance, radius, dim)) {
-                if (dragonflies[df].neighbour_no >= 1) {
+                if (neighbour_no >= 1) {
 
                     for (int j = 0; j < dim; j++) {
                         dragonflies[df].velocity[j] = w * dragonflies[df].velocity[j] + drand48() * alignment[j] + drand48() * cohesion[j] + drand48() * separation[j];
@@ -299,22 +298,29 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
     MPI_Barrier(MPI_COMM_WORLD);
     elapsed_time += MPI_Wtime();
+
+    printf("%d) Time: %.7f\n", id, elapsed_time);
+
     MPI_Reduce(&elapsed_time, &global_time, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     result.best_score = food_value.value;
     array_copy(result.best_position, food_pos, dim);
 
     if (!id) {
-        printf("Time: %.4f\n", global_time);
-        printf("Best Score: %.10f\nPosition: ", result.best_score);
+        printf("Time: %.4f\n", elapsed_time);
+        printf("Best Score: %.8f\nPosition: ", result.best_score);
         print_array(result.best_position, dim);
         printf("\n");
     }
+
+    elapsed_time = 0.0;
+    global_time = 0.0;
 
     /** Free Memory **/
     MPI_Type_free(&MPI_POSITION_TYPE);
     memset(&result, 0, sizeof(result));
     free(dragonflies), dragonflies = NULL;
+    free(neighbours), neighbours = NULL;
     free(food_pos), food_pos = NULL;
     free(pred_pos), pred_pos = NULL;
     free(food_distance), food_distance = NULL;

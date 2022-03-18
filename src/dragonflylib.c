@@ -63,12 +63,14 @@ void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dimensi
             dragonflies[df].position[i] = drand48() * (upperbound - lowerbound) + lowerbound;
             dragonflies[df].velocity[i] = drand48() * (upperbound - lowerbound) + lowerbound;
         }
-        dragonflies[df].neighbours = (Neighbour *)calloc(1, sizeof(Neighbour));
-        dragonflies[df].neighbours[0].position = (double *)calloc(dimension, sizeof(double));
-        dragonflies[df].neighbours[0].velocity = (double *)calloc(dimension, sizeof(double));
-        dragonflies[df].neighbour_no = 0;
     }
     srand48(seed);
+}
+
+void init_neighbours(Neighbour *neighbours, int dimension) {
+    neighbours = (Neighbour *)calloc(1, sizeof(Neighbour));
+    neighbours[0].position = (double *)calloc(dimension, sizeof(double));
+    neighbours[0].velocity = (double *)calloc(dimension, sizeof(double));
 }
 
 void add_neighbours(Neighbour **neighbours, int neighbour_no, int dimension) {
@@ -134,41 +136,40 @@ double *levy_func(long dim, int seed) {
     return levy;
 }
 
-void separation_dragonfly(double *separation, Dragonfly dragonflies, long dim) {
-    if (!dragonflies.neighbour_no)
+void separation_dragonfly(double *separation, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim) {
+    if (!neighbour_no)
         return;
 
-    for (long i = 0; i < dragonflies.neighbour_no; i++)
+    for (long i = 0; i < neighbour_no; i++)
         for (long k = 0; k < dim; k++)
-            separation[k] += dragonflies.position[k] - dragonflies.neighbours[i].position[k];
+            separation[k] += dragonflies.position[k] - neighbours[i].position[k];
 
     for (long k = 0; k < dim; k++)
         separation[k] = -separation[k];
 }
 
-void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, long neighbours_no) {
-    if (!neighbours_no)
+void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, int neighbour_no) {
+    if (!neighbour_no)
         return;
 
-    for (long i = 0; i < neighbours_no; i++)
+    for (long i = 0; i < neighbour_no; i++)
         for (long j = 0; j < dim; j++)
             alignment[j] += neighbours[i].velocity[j];
 
     for (long i = 0; i < dim; i++)
-        alignment[i] /= neighbours_no;
+        alignment[i] /= neighbour_no;
 }
 
-void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, long dim) {
-
+void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim) {
     double *cohesion_temp = (double *)calloc(dim, sizeof(double));
 
-    if (dragonflies.neighbour_no > 1) {
-        for (long i = 0; i < dragonflies.neighbour_no; i++)
+    if (neighbour_no > 1) {
+        for (long i = 0; i < neighbour_no; i++)
             for (long j = 0; j < dim; j++)
-                cohesion[j] += dragonflies.neighbours[i].position[j];
+                cohesion[j] += neighbours[i].position[j];
 
         for (long i = 0; i < dim; i++)
-            cohesion[i] /= dragonflies.neighbour_no;
+            cohesion[i] /= neighbour_no;
     } else {
         array_copy(cohesion_temp, dragonflies.position, dim);
     }
