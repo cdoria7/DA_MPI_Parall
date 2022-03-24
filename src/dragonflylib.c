@@ -96,9 +96,16 @@ double *distance(double *x, double *y, long dim) {
 }
 
 int validate_neighbour(double *dist, double radius, int dim) {
-    for (int i = 0; i < dim; i++)
-        if (dist[i] >= radius || dist[i] == 0)
+    int flagzero = 0;
+
+    for (int i = 0; i < dim; i++) {
+        if (dist[i] >= radius)
             return 0;
+        if (dist[i] == 0)
+            flagzero += 1;
+    }
+    if (flagzero == dim)
+        return 0;
     return 1;
 }
 

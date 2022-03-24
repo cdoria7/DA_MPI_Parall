@@ -1,7 +1,7 @@
 #include "dragonflylib.h"
 #include <mpi.h>
 
-#define STATIC_WEIGHT 1
+#define STATIC_WEIGHT 0
 
 /********************************************************************************
  * mpirun -n 2 ./dragonfly_PA.o <iter> <dragonfly> <dim> <test_func> [<repeat>] *
@@ -139,8 +139,8 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     double s = 0.1;
     double a = 0.1;
     double c = 0.7;
-    double f = 0.1;
-    double e = 0.1;
+    double f = 1;
+    double e = 1;
 #endif
 
     /** MPI_Datatype User-Defined **/
@@ -191,6 +191,14 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
         /** Add neighbours **/
         for (int df = 0; df < dragonfly_proc_no; df++) {
 
+            if (neighbour_no) {
+                for (int n = 0; n < neighbour_no; n++) {
+                    free(neighbours[n].position), neighbours[n].position = NULL;
+                    free(neighbours[n].velocity), neighbours[n].velocity = NULL;
+                }
+                init_neighbours(neighbours, dim);
+            }
+
             int index = 0;
             neighbour_no = 0;
 
@@ -200,7 +208,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
                 /** Validate and Add Neighbours to List of Neighbours **/
                 if (validate_neighbour(dist, radius, dim)) {
-
                     neighbour_no += 1;
                     add_neighbours(&neighbours, neighbour_no, dim);
                     memcpy(neighbours[index].position, dragonflies[j].position, dim * sizeof(double));
@@ -215,14 +222,14 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
             if (my_c < 0)
                 my_c = 0.0;
 
-            s = 2 * drand48() * my_c; /** Seperation weight        **/
-            a = 2 * drand48() * my_c; /** Alignment weight         **/
-            c = 2 * drand48() * my_c; /** Cohesion weight          **/
-            f = 2 * drand48();        /** Food attraction weight   **/
-            e = my_c;                 /** Enemy distraction weight **/
+            s = 2.0 * drand48() * my_c; /** Seperation weight        **/
+            a = 2.0 * drand48() * my_c; /** Alignment weight         **/
+            c = 2.0 * drand48() * my_c; /** Cohesion weight          **/
+            f = 2.0 * drand48();        /** Food attraction weight   **/
+            e = my_c;                   /** Enemy distraction weight **/
 #endif
             /** Update radius **/
-            radius = (upper_bound - lower_bound) / 4.0 + ((upper_bound - lower_bound) * ((double)iter / iteration) * 2.0);
+            radius = (double)(upper_bound - lower_bound) / 4.0 + ((upper_bound - lower_bound) * ((double)iter / (double)iteration) * 2.0);
 
             /** Compute distance to food and pred **/
             food_distance = distance(dragonflies[df].position, food_pos, dim);
@@ -254,7 +261,7 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
             if (neighbour_no >= 1) {
                 for (int i = 0; i < dim; i++) {
                     if (food_near_dragonfly(food_distance, radius, dim)) {
-                        dragonflies[df].velocity[i] = w * dragonflies[df].velocity[i] + (a * alignment[i] + c * cohesion[i] + s * separation[i] + f * food_attraction[i] + e * pred_distraction[i]);
+                        dragonflies[df].velocity[i] = w * dragonflies[df].velocity[i] + (a * alignment[i] + c * cohesion[i] + s * separation[i]);
                         // dragonflies[df].velocity[i] = w * dragonflies[df].velocity[i] + drand48() * alignment[i] + drand48() * cohesion[i] + drand48() * separation[i];
                     } else {
                         dragonflies[df].velocity[i] = w * dragonflies[df].velocity[i] + (a * alignment[i] + c * cohesion[i] + s * separation[i] + f * food_attraction[i] + e * pred_distraction[i]);
@@ -278,10 +285,10 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
             /******* Check Boundaries *******/
             for (int axis = 0; axis < dim; axis++) {
                 if (dragonflies[df].position[axis] > upper_bound) {
-                    dragonflies[df].position[axis] = lower_bound;
+                    dragonflies[df].position[axis] = upper_bound;
                 }
                 if (dragonflies[df].position[axis] < lower_bound) {
-                    dragonflies[df].position[axis] = upper_bound;
+                    dragonflies[df].position[axis] = lower_bound;
                 }
             }
 
