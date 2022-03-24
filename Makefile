@@ -12,10 +12,10 @@ BUILD_PATH = ./build
 INCLUDE_PATH = ./include
 RESOURCE_PATH = ./resource
 
-ITER = 200
+ITER = 400
 DRAGONFLY = 700
-DIM = 3
-TEST_FUNC = 5
+DIM = 5
+TEST_FUNC = 3
 REPEAT = 1
 
 
@@ -30,7 +30,6 @@ rs: $(SOURCE_FILE).o
 
 compile: $(LIB_PATH)/$(LIB_FILE).a
 	${COMPILER} \
-		-O3 \
 		-o $(SOURCE_FILE).o \
 		-I $(INCLUDE_PATH) \
 		$(SOURCE_PATH)/$(SOURCE_FILE).c \
@@ -39,7 +38,7 @@ compile: $(LIB_PATH)/$(LIB_FILE).a
 	rm -rf $(SOURCE_FILE).o.dSYM
 
 lib: $(SOURCE_PATH)/$(LIB_FILE).c 
-	clang -O3 -c -Wall -o $(BUILD_PATH)/$(LIB_FILE).o \
+	clang -c -Wall -o $(BUILD_PATH)/$(LIB_FILE).o \
 	 -I $(INCLUDE_PATH) $(SOURCE_PATH)/$(LIB_FILE).c 
 	ar -r $(LIB_PATH)/$(LIB_FILE).a $(BUILD_PATH)/$(LIB_FILE).o
 

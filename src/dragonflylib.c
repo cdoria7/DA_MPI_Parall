@@ -12,9 +12,9 @@ void *mycalloc(long dimension, int size, int id) {
     return mem_loc;
 }
 
-void array_copy(double *dest, double *source, long dim) {
-    memcpy(dest, source, sizeof(double) * dim);
-}
+// void array_copy(double *dest, double *source, long dim) {
+//     memcpy(dest, source, sizeof(double) * dim);
+// }
 
 void print_array_2d(double **array, long row, long col) {
     for (int i = 0; i < row; i++) {
@@ -171,7 +171,7 @@ void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, Neighbour *neig
         for (long i = 0; i < dim; i++)
             cohesion[i] /= neighbour_no;
     } else {
-        array_copy(cohesion_temp, dragonflies.position, dim);
+        memcpy(cohesion_temp, dragonflies.position, dim * sizeof(double));
     }
 
     for (long i = 0; i < dim; i++)
@@ -194,30 +194,26 @@ void *func_obj(int func, int *ub, int *lb) {
     case 1:
         *ub = 100;
         *lb = -100;
-        return &TF1;
+        return &Sphere;
+
     case 2:
         *ub = 10;
         *lb = -10;
         return &TF2;
 
     case 3:
-        *ub = 5;
-        *lb = -5;
-        return &ackley;
-
-    case 5:
-        *ub = 100;
-        *lb = -100;
-        return &TF5;
+        *ub = 30;
+        *lb = -30;
+        return &Rosenbrock;
 
     default:
         *ub = 30;
         *lb = -30;
-        return &TF5;
+        return &Rosenbrock;
     }
 }
 
-double TF1(double *x, int dimension) {
+double Sphere(double *x, int dimension) {
     double result = 0.0;
     for (int i = 0; i < dimension; i++)
         result += pow(x[i], 2);
@@ -234,7 +230,7 @@ double TF2(double *x, int dimension) {
     return result_prod + result_sum;
 }
 
-double TF5(double *x, int dimension) {
+double Rosenbrock(double *x, int dimension) {
     double result = 0.0;
     for (int i = 0; i < dimension - 1; i++)
         result += 100.0 * (pow(x[i + 1] - pow(x[i], 2.0), 2.0)) + pow(x[i] - 1, 2.0);

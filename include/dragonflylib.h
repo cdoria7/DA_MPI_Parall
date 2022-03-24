@@ -49,7 +49,7 @@ void print_array_2d(double **matrix, long row, long col);
 void print_array(double *array, long dim);
 void print_array_proc(double *array, long dim, int id);
 void print_array_onfile(double *array, long dim, FILE *fp);
-void array_copy(double *dest, double *source, long dim);
+// void array_copy(double *dest, double *source, long dim);
 void *mycalloc(long dimension, int size, int id);
 
 /****** ALGORITHM FUNCTION SUPPORT ********/
@@ -80,7 +80,6 @@ void predator_distraction_dragonfly(double *predator_distraction, double *positi
 #define ROSENBROCK 5
 
 void *func_obj(int func, int *ub, int *lb);
-double TF1(double *x, int dimension);
+double Sphere(double *x, int dimension);
 double TF2(double *x, int dimension);
-double TF5(double *x, int dimension);
-double ackley(double *x, double nDimensions);
+double Rosenbrock(double *x, int dimension);
