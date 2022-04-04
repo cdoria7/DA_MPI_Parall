@@ -1,17 +1,12 @@
 #include "dragonflylib.h"
 #include <mpi.h>
 
-#define STATIC_WEIGHT 0
+#define DYNAMIC_WEIGHT 1
 
-/********************************************************************************
- * mpirun -n 2 ./dragonfly_PA.o <iter> <dragonfly> <dim> <test_func> [<repeat>] *
- ********************************************************************************/
 typedef struct hotspot_t {
     double value;
-    int rank;
+    int id;
 } HotSpot;
-
-// void best_hotspot(HotSpot *h1, HotSpot *h2, int *len, MPI_Datatype *type);
 
 void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int test_func, Result result);
 
@@ -50,7 +45,7 @@ int main(int argc, char *argv[]) {
 
 void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int test_func, Result result) {
 
-    int seed = 72024;
+    long seed = 72024;
 
     srand48(seed);
 
@@ -58,7 +53,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     double elapsed_time1 = 0.0;
     double global_time = 0.0;
 
-    /* Bounds */
     int upper_bound = 0;
     int lower_bound = 0;
 
@@ -83,10 +77,10 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     HotSpot food_value, pred_value;
 
     /** Food & Predator Value **/
-    food_value.rank = -1;
+    food_value.id = -1;
     food_value.value = INFINITY;
 
-    pred_value.rank = -1;
+    pred_value.id = -1;
     pred_value.value = -INFINITY;
 
     /** Food & Predator Position **/
@@ -100,10 +94,10 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     HotSpot local_food_value, local_pred_value;
 
     /** Food & Predator Value **/
-    local_food_value.rank = id;
+    local_food_value.id = id;
     local_food_value.value = INFINITY;
 
-    local_pred_value.rank = id;
+    local_pred_value.id = id;
     local_pred_value.value = -INFINITY;
 
     /** Food & Predator Distance **/
@@ -124,7 +118,7 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     double *pred_distraction = (double *)mycalloc(dim, sizeof(double), id);
 
     /** Define Weight **/
-#if !STATIC_WEIGHT
+#if DYNAMIC_WEIGHT
     double w = 0.0;
     double s = 0.0;
     double a = 0.0;
@@ -134,7 +128,7 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     double my_c = 0.0;
 #endif
 
-#if STATIC_WEIGHT
+#if !DYNAMIC_WEIGHT
     double w = drand48() * (0.9 - 0.2) + 0.2;
     double s = 0.1;
     double a = 0.1;
@@ -157,9 +151,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
     /** Start DA Algorithm **/
     for (int iter = 0; iter <= iteration; iter++) {
-
-        // MPI_Barrier(MPI_COMM_WORLD);
-        // elapsed_time1 = -MPI_Wtime();
 
         /** Update Food & Pred Position and Value **/
         for (int df = 0; df < dragonfly_proc_no; df++) {
@@ -185,37 +176,35 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
         MPI_Allreduce(&local_pred_value, &pred_value, 1, MPI_DOUBLE_INT, MPI_MAXLOC, MPI_COMM_WORLD);
 
         /** Broadcasting the Global Food and Global Pred position**/
-        MPI_Bcast(food_pos, 1, MPI_POSITION_TYPE, food_value.rank, MPI_COMM_WORLD);
-        MPI_Bcast(pred_pos, 1, MPI_POSITION_TYPE, pred_value.rank, MPI_COMM_WORLD);
+        MPI_Bcast(food_pos, 1, MPI_POSITION_TYPE, food_value.id, MPI_COMM_WORLD);
+        MPI_Bcast(pred_pos, 1, MPI_POSITION_TYPE, pred_value.id, MPI_COMM_WORLD);
 
         /** Add neighbours **/
         for (int df = 0; df < dragonfly_proc_no; df++) {
 
             if (neighbour_no) {
-                for (int n = 0; n < neighbour_no; n++) {
-                    free(neighbours[n].position), neighbours[n].position = NULL;
-                    free(neighbours[n].velocity), neighbours[n].velocity = NULL;
-                }
+                freeNeighbours(neighbours, neighbour_no);
                 init_neighbours(neighbours, dim);
             }
 
             int index = 0;
             neighbour_no = 0;
 
-            for (int j = 0; j < dragonfly_proc_no; j++) {
+            for (int i = 0; i < dragonfly_proc_no; i++) {
 
-                dist = distance(dragonflies[df].position, dragonflies[j].position, dim);
+                dist = distance(dragonflies[df].position, dragonflies[i].position, dim);
 
                 /** Validate and Add Neighbours to List of Neighbours **/
                 if (validate_neighbour(dist, radius, dim)) {
                     neighbour_no += 1;
                     add_neighbours(&neighbours, neighbour_no, dim);
-                    memcpy(neighbours[index].position, dragonflies[j].position, dim * sizeof(double));
-                    memcpy(neighbours[index].velocity, dragonflies[j].velocity, dim * sizeof(double));
+                    memcpy(neighbours[index].position, dragonflies[i].position, dim * sizeof(double));
+                    memcpy(neighbours[index].velocity, dragonflies[i].velocity, dim * sizeof(double));
                     index += 1;
                 }
             }
-#if !STATIC_WEIGHT
+
+#if DYNAMIC_WEIGHT
             w = 0.9 - iter * ((0.9 - 0.4) / iteration);
             my_c = 0.1 - iter * (0.1 / (iteration / 2.0));
 
@@ -228,8 +217,9 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
             f = 2.0 * drand48();        /** Food attraction weight   **/
             e = my_c;                   /** Enemy distraction weight **/
 #endif
+
             /** Update radius **/
-            radius = (double)(upper_bound - lower_bound) / 4.0 + ((upper_bound - lower_bound) * ((double)iter / (double)iteration) * 2.0);
+            radius = (double)(upper_bound - lower_bound) / 8.0 + ((upper_bound - lower_bound) * ((double)iter / (double)iteration) * 4.0);
 
             /** Compute distance to food and pred **/
             food_distance = distance(dragonflies[df].position, food_pos, dim);
@@ -241,7 +231,7 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
             /** Compute Alignment **/
             if (neighbour_no > 0)
-                alignment_dragonfly(alignment, neighbours, dim, neighbour_no);
+                alignment_dragonfly(alignment, neighbours, neighbour_no, dim);
             else
                 memcpy(alignment, dragonflies[df].velocity, dim * sizeof(double));
 
@@ -298,12 +288,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
                 dragonflies[df].position[j] = (dragonflies[df].position[j] * (!(flagUb[j] + flagLb[j]))) + upper_bound * flagUb[j] + lower_bound * flagLb[j];
             }
         }
-
-        // MPI_Barrier(MPI_COMM_WORLD);
-        // elapsed_time1 += MPI_Wtime();
-
-        // printf("%d) Time: %.7f\n", id, elapsed_time1);
-        // printf("%d) Food: %.7f\n", iter, food_value.value);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -315,8 +299,9 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     memcpy(result.best_position, food_pos, dim * sizeof(double));
 
     if (!id) {
-        printf("Time: %.4f\n", global_time);
-        printf("Best Score: %.8f\nPosition: ", result.best_score);
+        printf("Function:   %s\n", obj_function_name(test_func));
+        printf("Time:       %.4f\n", global_time);
+        printf("Best Score: %.8f\nPosition:  ", result.best_score);
         print_array(result.best_position, dim);
         printf("\n");
     }
@@ -326,15 +311,23 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
     /** Free Memory **/
     MPI_Type_free(&MPI_POSITION_TYPE);
-    memset(&result, 0, sizeof(result));
+
     free(dragonflies), dragonflies = NULL;
+
+    if (neighbour_no)
+        freeNeighbours(neighbours, neighbour_no);
+
     free(neighbours), neighbours = NULL;
+
     free(food_pos), food_pos = NULL;
     free(pred_pos), pred_pos = NULL;
+
     free(food_distance), food_distance = NULL;
     free(pred_distance), pred_distance = NULL;
+
     free(local_food_pos), local_food_pos = NULL;
     free(local_pred_pos), local_pred_pos = NULL;
+
     free(dist), dist = NULL;
     free(levy), levy = NULL;
     free(separation), separation = NULL;

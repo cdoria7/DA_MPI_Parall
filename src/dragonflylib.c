@@ -2,7 +2,6 @@
 #include <mpi.h>
 
 /************* UTILS FUNCTIONS ************/
-
 void *mycalloc(long dimension, int size, int id) {
     void *mem_loc = calloc(dimension, size);
     if (mem_loc == NULL) {
@@ -12,10 +11,14 @@ void *mycalloc(long dimension, int size, int id) {
     return mem_loc;
 }
 
-// void array_copy(double *dest, double *source, long dim) {
-//     memcpy(dest, source, sizeof(double) * dim);
-// }
+void print_array(double *array, long dim) {
+    for (int i = 0; i < dim; i++) {
+        fprintf(stdout, " %f ", array[i]);
+    }
+    fprintf(stdout, "\n");
+}
 
+/*
 void print_array_2d(double **array, long row, long col) {
     for (int i = 0; i < row; i++) {
         for (int j = 0; j < col; j++) {
@@ -23,13 +26,6 @@ void print_array_2d(double **array, long row, long col) {
         }
         fprintf(stdout, "\n");
     }
-}
-
-void print_array(double *array, long dim) {
-    for (int i = 0; i < dim; i++) {
-        fprintf(stdout, " %f ", array[i]);
-    }
-    fprintf(stdout, "\n");
 }
 
 void print_array_proc(double *array, long dim, int id) {
@@ -46,20 +42,29 @@ void print_array_onfile(double *array, long dim, FILE *fp) {
     }
     fprintf(fp, "\n");
 }
+*/
 
 /****** ALGORITHM FUNCTION SUPPORT ********/
 
-double update_radius(int ub, int lb, int iter, int max_iter) {
-    return (ub - lb) / 4.0 + ((ub - lb) * ((double)iter / max_iter) * 2.0);
-}
-
-void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dimension, int upperbound, int lowerbound, int rank, int seed) {
+/**
+ * @brief Inizializza l'array di strutture di tipo Dragonfly e assegna un posizione
+ *        pseudo-randomica ad ognuna di esse basandosi su upperbound e lowerbound.
+ *
+ * @param dragonflies Array di Strutture Dragonfly
+ * @param dragonfly_no dimensione dell'array
+ * @param dim dimensione del problema (numero di variabili del problema)
+ * @param upperbound Upperbound dello spazio di ricerca
+ * @param lowerbound Lowerbound dello spazio di ricerca
+ * @param rank Rank del processo
+ * @param seed Seed per la generazione pseudo-randomica
+ */
+void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dim, int upperbound, int lowerbound, int rank, int seed) {
     srand48(seed + rank);
     for (int df = 0; df < dragonfly_no; df++) {
-        dragonflies[df].position = (double *)calloc(dimension, sizeof(double));
-        dragonflies[df].velocity = (double *)calloc(dimension, sizeof(double));
+        dragonflies[df].position = (double *)calloc(dim, sizeof(double));
+        dragonflies[df].velocity = (double *)calloc(dim, sizeof(double));
         dragonflies[df].fitness = 0.0;
-        for (int i = 0; i < dimension; i++) {
+        for (int i = 0; i < dim; i++) {
             dragonflies[df].position[i] = drand48() * (upperbound - lowerbound) + lowerbound;
             dragonflies[df].velocity[i] = drand48() * (upperbound - lowerbound) + lowerbound;
         }
@@ -67,18 +72,53 @@ void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dimensi
     srand48(seed);
 }
 
-void init_neighbours(Neighbour *neighbours, int dimension) {
+/**
+ * @brief Inizializza l'array di strutture che conterrà le libellule vicine
+ *
+ * @param neighbours Array di strutture dei vicini.
+ * @param dim dimensione del problema (numero di variabili del problema)
+ */
+void init_neighbours(Neighbour *neighbours, int dim) {
     neighbours = (Neighbour *)calloc(1, sizeof(Neighbour));
-    neighbours[0].position = (double *)calloc(dimension, sizeof(double));
-    neighbours[0].velocity = (double *)calloc(dimension, sizeof(double));
+    neighbours[0].position = (double *)calloc(dim, sizeof(double));
+    neighbours[0].velocity = (double *)calloc(dim, sizeof(double));
 }
 
-void add_neighbours(Neighbour **neighbours, int neighbour_no, int dimension) {
+/**
+ * @brief Libera lo spazio in memoria occupato dall'array dei vicini
+ *
+ * @param neighbours Array di strutture dei vicini.
+ * @param neighbour_no numero degli elementi nell'array dei vicini
+ */
+void freeNeighbours(Neighbour *neighbours, int neighbour_no) {
+    for (int n = 0; n < neighbour_no; n++) {
+        free(neighbours[n].position), neighbours[n].position = NULL;
+        free(neighbours[n].velocity), neighbours[n].velocity = NULL;
+    }
+}
+
+/**
+ * @brief Aggiunge un elemento di tipo Neighbour al vettore dei vicini.
+ *
+ * @param neighbours Array di strutture dei vicini.
+ * @param neighbour_no numero degli elementi nell'array dei vicini
+ * @param dim dimensione del problema (numero di variabili del problema)
+ */
+void add_neighbours(Neighbour **neighbours, int neighbour_no, int dim) {
     (*neighbours) = (Neighbour *)realloc((*neighbours), (neighbour_no) * sizeof(Neighbour));
-    (*neighbours)[neighbour_no - 1].position = (double *)calloc(dimension, sizeof(double));
-    (*neighbours)[neighbour_no - 1].velocity = (double *)calloc(dimension, sizeof(double));
+    (*neighbours)[neighbour_no - 1].position = (double *)calloc(dim, sizeof(double));
+    (*neighbours)[neighbour_no - 1].velocity = (double *)calloc(dim, sizeof(double));
 }
 
+/**
+ * @brief
+ *
+ * @param position   Posizione della libellula da controllare
+ * @param upperbound Upperbound dello spazio di ricerca
+ * @param lowerbound Lowerbound dello spazio di ricerca
+ * @param dim  Dimensione del problema (numero di variabili del problema)
+ * @return int       Ritorna 0 se la posizione è all'interno dello spazio di ricerca
+ */
 int check_bound(double *position, long upper_bound, long lower_bound, long dim) {
     for (int i = 0; i < dim; i++) {
         if (position[i] < upper_bound && position[i] > lower_bound) {
@@ -88,6 +128,14 @@ int check_bound(double *position, long upper_bound, long lower_bound, long dim) 
     return 0;
 }
 
+/**
+ * @brief
+ *
+ * @param x posizione del primo punto
+ * @param y posizione del secondo punto
+ * @param dim  Dimensione del problema (numero di variabili del problema)
+ * @return double* Ritorna un vettore delle distanze di ogni componente
+ */
 double *distance(double *x, double *y, long dim) {
     double *result = calloc(dim, sizeof(double));
     for (int i = 0; i < dim; i++)
@@ -95,20 +143,39 @@ double *distance(double *x, double *y, long dim) {
     return result;
 }
 
+/**
+ * @brief Verifica che il candidato vicino possa essere considerato realmente un vicinp
+ *
+ * @param dist distanza della libellula del candidato vicino
+ * @param radius raggio della libellula
+ * @param dim  Dimensione del problema (numero di variabili del problema)
+ * @return int Ritorna 0 se il vicino è fuori dal raggio o se tutte le distanze sono nulle,
+ *             altrimenti 1 se il vicino candidato è un vicino effettivo.
+ */
 int validate_neighbour(double *dist, double radius, int dim) {
     int flagzero = 0;
 
     for (int i = 0; i < dim; i++) {
         if (dist[i] >= radius)
             return 0;
+
         if (dist[i] == 0)
             flagzero += 1;
     }
     if (flagzero == dim)
         return 0;
+
     return 1;
 }
 
+/**
+ * @brief Verifica che una distanza sia inferiore del raggio.
+ *
+ * @param dist distanza della libellula del candidato vicino
+ * @param radius raggio della libellula
+ * @param dim  Dimensione del problema (numero di variabili del problema)
+ * @return int Ritorna 1 se la distanza è minore del raggio della libellula
+ */
 int check_distance_radius(double *dist, double radius, int dim) {
     for (int i = 0; i < dim; i++)
         if (dist[i] >= radius)
@@ -116,13 +183,14 @@ int check_distance_radius(double *dist, double radius, int dim) {
     return 1;
 }
 
-int check_distance_is_zero(double *dist, double radius, int dim) {
-    for (int i = 0; i < dim; i++)
-        if (dist[i] == 0)
-            return 0;
-    return 1;
-}
-
+/**
+ * @brief Verifica che una distanza sia inferiore del raggio.
+ *
+ * @param dist distanza della libellula del candidato vicino
+ * @param radius raggio della libellula
+ * @param dim  Dimensione del problema (numero di variabili del problema)
+ * @return int Ritorna 1 se il cibo si trova all'interno del raggio della libellua
+ */
 int food_near_dragonfly(double *dist, double radius, int dim) {
     for (int i = 0; i < dim; i++)
         if (dist[i] >= radius)
@@ -130,32 +198,38 @@ int food_near_dragonfly(double *dist, double radius, int dim) {
     return 0;
 }
 
-/************* BEHAVIOURS FUNCTIONS ************/
+/************* SWARM FUNCTIONS ************/
 
-double *levy_func(long dim, int seed) {
-    srand48(seed);
-    double *levy = calloc(dim, sizeof(double));
-    for (long i = 0; i < dim; i++) {
-        double r1 = drand48() * Sigma;
-        double r2 = fabs(drand48());
-        levy[i] = 0.01 * (r1 / pow(r2, (1.0 / Beta)));
-    }
-    return levy;
-}
-
-void separation_dragonfly(double *separation, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim) {
+/**
+ * @brief Funzione che descrive il moto di separazione delle libellule Eq.1 del report
+ *
+ * @param separation vettore che contiene le componenti del moto di separazione
+ * @param dragonfly libellula sulla quale calcolare il moto di separazione
+ * @param neighbours vicini della libellula sulla quale calcolare il moto di separazione
+ * @param neighbour_no numero di libellule vicine alla libellula ulla quale calcolare il moto di separazione
+ * @param dim Dimensione del problema (numero di variabili del problema)
+ */
+void separation_dragonfly(double *separation, Dragonfly dragonfly, Neighbour *neighbours, int neighbour_no, long dim) {
     if (!neighbour_no)
         return;
 
     for (long i = 0; i < neighbour_no; i++)
         for (long k = 0; k < dim; k++)
-            separation[k] += dragonflies.position[k] - neighbours[i].position[k];
+            separation[k] += dragonfly.position[k] - neighbours[i].position[k];
 
     for (long k = 0; k < dim; k++)
         separation[k] = -separation[k];
 }
 
-void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, int neighbour_no) {
+/**
+ * @brief Funzione che descrive il moto di allineamento delle libellule Eq.2 del report
+ *
+ * @param alignment vettore che contiene le componenti del moto di allineamento
+ * @param neighbours vicini della libellula sulla quale calcolare il moto di separazione
+ * @param neighbour_no numero di libellule vicine alla libellula ulla quale calcolare il moto di separazione
+ * @param dim Dimensione del problema (numero di variabili del problema)
+ */
+void alignment_dragonfly(double *alignment, Neighbour *neighbours, int neighbour_no, long dim) {
     if (!neighbour_no)
         return;
 
@@ -167,7 +241,16 @@ void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, int
         alignment[i] /= neighbour_no;
 }
 
-void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim) {
+/**
+ * @brief Funzione che descrive il moto di coesione delle libellule Eq.3 del report
+ *
+ * @param cohesion vettore che contiene le componenti del moto di coesione
+ * @param dragonfly libellula sulla quale calcolare il moto di separazione
+ * @param neighbours vicini della libellula sulla quale calcolare il moto di separazione
+ * @param neighbour_no numero di libellule vicine alla libellula ulla quale calcolare il moto di separazione
+ * @param dim Dimensione del problema (numero di variabili del problema)
+ */
+void cohesion_dragonfly(double *cohesion, Dragonfly dragonfly, Neighbour *neighbours, int neighbour_no, long dim) {
     double *cohesion_temp = (double *)calloc(dim, sizeof(double));
 
     if (neighbour_no > 1) {
@@ -178,24 +261,72 @@ void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, Neighbour *neig
         for (long i = 0; i < dim; i++)
             cohesion[i] /= neighbour_no;
     } else {
-        memcpy(cohesion_temp, dragonflies.position, dim * sizeof(double));
+        memcpy(cohesion_temp, dragonfly.position, dim * sizeof(double));
     }
 
     for (long i = 0; i < dim; i++)
-        cohesion[i] = cohesion_temp[i] - dragonflies.position[i];
+        cohesion[i] = cohesion_temp[i] - dragonfly.position[i];
 }
 
+/**
+ * @brief Funzione che descrive il moto di attrazione verso il cibo delle libellule Eq.4 del report
+ *
+ * @param food_attraction vettore che contiene le componenti del moto di attrazione verso il cibo
+ * @param position Posizione della libellula
+ * @param food_position Posizione del cibo
+ * @param dim Dimensione del problema (numero di variabili del problema)
+ */
 void food_attraction_dragonfly(double *food_attraction, double *position, double *food_position, long dim) {
     for (long i = 0; i < dim; i++)
         food_attraction[i] = food_position[i] - position[i];
 }
 
+/**
+ * @brief Funzione che descrive il moto di allontanamento dal predatore delle libellule Eq.5 del report
+ *
+ * @param predator_distraction vettore che contiene le componenti del moto di allontanamento dal predatore
+ * @param position Posizione della libellula
+ * @param food_position Posizione del cibo
+ * @param dim Dimensione del problema (numero di variabili del problema)
+ */
 void predator_distraction_dragonfly(double *predator_distraction, double *position, double *predator_position, long dim) {
     for (long i = 0; i < dim; i++)
         predator_distraction[i] = predator_position[i] + position[i];
 }
 
+/**
+ * @brief Funzione di Levy che descrive un movimento pseudorandomico all'interno dello spazio di ricerca.
+ *
+ * @param dim Dimensione del problema (numero di variabili del problema)
+ * @param seed Seed per la generazione pseudo-randomica
+ * @return double*  vettore che contiene le componenti del moto di allontanamento dal predatore
+ */
+double *levy_func(long dim, int seed) {
+    srand48(seed);
+    double *levy = calloc(dim, sizeof(double));
+    for (long i = 0; i < dim; i++) {
+        double r1 = drand48() * Sigma;
+        double r2 = fabs(drand48());
+        levy[i] = 0.01 * (r1 / pow(r2, (1.0 / Beta)));
+    }
+    return levy;
+}
+
 /************* TEST FUNCTIONS ************/
+
+/**
+ * @brief Restituisce una funzione di test.
+ *
+ * @param func valore intero associato alla funzione:
+ *              1: Sphere function
+ *              2: (TF2) Somma tra la sommatoria e la produttoria delle componenti
+ *              3: Rosenbrock function
+ *              other: Viene ritornata Rosembrock
+ *
+ * @param ub Upperbound dello spazio di ricerca
+ * @param lb Lowerbound dello spazio di ricerca
+ * @return void* Ritorna un puntatore a funzione
+ */
 void *func_obj(int func, int *ub, int *lb) {
     switch (func) {
     case 1:
@@ -217,6 +348,19 @@ void *func_obj(int func, int *ub, int *lb) {
         *ub = 30;
         *lb = -30;
         return &Rosenbrock;
+    }
+}
+
+char *obj_function_name(int func) {
+    switch (func) {
+    case 1:
+        return "Sphere";
+    case 2:
+        return "TF2";
+    case 3:
+        return "Rosenbrock";
+    default:
+        return "Rosenbrock";
     }
 }
 
@@ -243,20 +387,4 @@ double Rosenbrock(double *x, int dimension) {
         result += 100.0 * (pow(x[i + 1] - pow(x[i], 2.0), 2.0)) + pow(x[i] - 1, 2.0);
 
     return result;
-}
-
-double ackley(double *x, double nDimensions) {
-    double c = 2 * M_PI;
-    double b = 0.2;
-    double a = 20;
-    double sum1 = 0;
-    double sum2 = 0;
-    int i;
-    for (i = 0; i < nDimensions; i++) {
-        sum1 = sum1 + pow(x[i], 2.0);
-        sum2 = sum2 + cos(c * x[i]);
-    }
-    double term1 = -a * exp(-b * sqrt(sum1 / nDimensions));
-    double term2 = -exp(sum2 / nDimensions);
-    return term1 + term2 + a + M_E;
 }

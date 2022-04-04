@@ -24,8 +24,9 @@
  * >                endif
  * >            endif
  * >        end
+ *
  * >        MPI_Wait() Wait Result of Brocast Communication
- * >        Compute the behavior function
+ * >        Compute the sworm function
  * >        Check boundaries and max velocity
  * >        Update weight w,s,a,c,f,e
  * >        if df-th dragonfly have food in radius:

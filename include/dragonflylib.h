@@ -44,19 +44,29 @@ typedef struct result_t {
 } Result;
 
 /************* UTILS FUNCTIONS ************/
-
-void print_array_2d(double **matrix, long row, long col);
+void *mycalloc(long dimension, int size, int id);
 void print_array(double *array, long dim);
+char *obj_function_name(int func);
+/*
+void print_array_2d(double **matrix, long row, long col);
 void print_array_proc(double *array, long dim, int id);
 void print_array_onfile(double *array, long dim, FILE *fp);
-// void array_copy(double *dest, double *source, long dim);
-void *mycalloc(long dimension, int size, int id);
+*/
 
 /****** ALGORITHM FUNCTION SUPPORT ********/
 
 void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dimension, int upperbound, int lowerbound, int rank, int seed);
+
+/**
+ * @brief Inizializza l'
+ *
+ * @param neighbours
+ * @param dimension
+ */
 void init_neighbours(Neighbour *neighbours, int dimension);
+
 void add_neighbours(Neighbour **neighbour, int neighbours_no, int dimension);
+
 double update_radius(int ub, int lb, int iter, int max_iter);
 void update_weight(int iter, int max_iter, double *w, double *s, double *a, double *c, double *f, double *e);
 double *distance(double *x, double *y, long dim);
@@ -65,12 +75,13 @@ int check_distance_radius(double *dist, double radius, int dim);
 int food_near_dragonfly(double *dist, double radius, int dim);
 int check_distance_zero(double *dist, double radius, int dim);
 int validate_neighbour(double *dist, double radius, int dim);
+void freeNeighbours(Neighbour *neighbours, int neighbour_no);
 
 /************* BEHAVIOURS FUNCTIONS ************/
 double *levy_func(long dim, int seed);
-void separation_dragonfly(double *separation, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim);
-void alignment_dragonfly(double *alignment, Neighbour *neighbours, long dim, int neighbour_no);
-void cohesion_dragonfly(double *cohesion, Dragonfly dragonflies, Neighbour *neighbours, int neighbour_no, long dim);
+void separation_dragonfly(double *separation, Dragonfly dragonfly, Neighbour *neighbours, int neighbour_no, long dim);
+void alignment_dragonfly(double *alignment, Neighbour *neighbours, int neighbour_no, long dim);
+void cohesion_dragonfly(double *cohesion, Dragonfly dragonfly, Neighbour *neighbours, int neighbour_no, long dim);
 void food_attraction_dragonfly(double *food_attraction, double *position, double *food_position, long dim);
 void predator_distraction_dragonfly(double *predator_distraction, double *position, double *predator_position, long dim);
 
