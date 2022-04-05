@@ -57,19 +57,13 @@ void print_array_onfile(double *array, long dim, FILE *fp);
 
 void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dimension, int upperbound, int lowerbound, int rank, int seed);
 
-/**
- * @brief Inizializza l'
- *
- * @param neighbours
- * @param dimension
- */
 void init_neighbours(Neighbour *neighbours, int dimension);
 
 void add_neighbours(Neighbour **neighbour, int neighbours_no, int dimension);
 
 double update_radius(int ub, int lb, int iter, int max_iter);
 void update_weight(int iter, int max_iter, double *w, double *s, double *a, double *c, double *f, double *e);
-double *distance(double *x, double *y, long dim);
+void distance(double *dst, double *x, double *y, long dim);
 int check_bound(double *position, long upper_bound, long lower_bound, long dim);
 int check_distance_radius(double *dist, double radius, int dim);
 int food_near_dragonfly(double *dist, double radius, int dim);
@@ -78,7 +72,7 @@ int validate_neighbour(double *dist, double radius, int dim);
 void freeNeighbours(Neighbour *neighbours, int neighbour_no);
 
 /************* BEHAVIOURS FUNCTIONS ************/
-double *levy_func(long dim, int seed);
+void levy_func(double *levy, long dim, int seed);
 void separation_dragonfly(double *separation, Dragonfly dragonfly, Neighbour *neighbours, int neighbour_no, long dim);
 void alignment_dragonfly(double *alignment, Neighbour *neighbours, int neighbour_no, long dim);
 void cohesion_dragonfly(double *cohesion, Dragonfly dragonfly, Neighbour *neighbours, int neighbour_no, long dim);

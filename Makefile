@@ -12,9 +12,9 @@ BUILD_PATH = ./build
 INCLUDE_PATH = ./include
 RESOURCE_PATH = ./resource
 
-ITER = 500
-DRAGONFLY = 300
-DIM = 4
+ITER = 1
+DRAGONFLY = 3000
+DIM = 3
 TEST_FUNC = 5
 REPEAT = 1
 

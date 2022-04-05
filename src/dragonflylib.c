@@ -64,6 +64,7 @@ void init_struct_dragonfly(Dragonfly *dragonflies, int dragonfly_no, int dim, in
         dragonflies[df].position = (double *)calloc(dim, sizeof(double));
         dragonflies[df].velocity = (double *)calloc(dim, sizeof(double));
         dragonflies[df].fitness = 0.0;
+
         for (int i = 0; i < dim; i++) {
             dragonflies[df].position[i] = drand48() * (upperbound - lowerbound) + lowerbound;
             dragonflies[df].velocity[i] = drand48() * (upperbound - lowerbound) + lowerbound;
@@ -136,11 +137,9 @@ int check_bound(double *position, long upper_bound, long lower_bound, long dim) 
  * @param dim  Dimensione del problema (numero di variabili del problema)
  * @return double* Ritorna un vettore delle distanze di ogni componente
  */
-double *distance(double *x, double *y, long dim) {
-    double *result = calloc(dim, sizeof(double));
+void distance(double *dst, double *x, double *y, long dim) {
     for (int i = 0; i < dim; i++)
-        result[i] = sqrt(pow((y[i] - x[i]), 2.0));
-    return result;
+        dst[i] = sqrt(pow((y[i] - x[i]), 2.0));
 }
 
 /**
@@ -162,6 +161,7 @@ int validate_neighbour(double *dist, double radius, int dim) {
         if (dist[i] == 0)
             flagzero += 1;
     }
+
     if (flagzero == dim)
         return 0;
 
@@ -266,6 +266,8 @@ void cohesion_dragonfly(double *cohesion, Dragonfly dragonfly, Neighbour *neighb
 
     for (long i = 0; i < dim; i++)
         cohesion[i] = cohesion_temp[i] - dragonfly.position[i];
+
+    free(cohesion_temp), cohesion_temp = NULL;
 }
 
 /**
@@ -299,17 +301,13 @@ void predator_distraction_dragonfly(double *predator_distraction, double *positi
  *
  * @param dim Dimensione del problema (numero di variabili del problema)
  * @param seed Seed per la generazione pseudo-randomica
- * @return double*  vettore che contiene le componenti del moto di allontanamento dal predatore
  */
-double *levy_func(long dim, int seed) {
-    srand48(seed);
-    double *levy = calloc(dim, sizeof(double));
+void levy_func(double *levy, long dim, int seed) {
     for (long i = 0; i < dim; i++) {
         double r1 = drand48() * Sigma;
         double r2 = fabs(drand48());
         levy[i] = 0.01 * (r1 / pow(r2, (1.0 / Beta)));
     }
-    return levy;
 }
 
 /************* TEST FUNCTIONS ************/
