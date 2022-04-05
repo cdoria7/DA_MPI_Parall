@@ -2,8 +2,6 @@
 #include <mpi.h>
 #include <unistd.h>
 
-#define DYNAMIC_WEIGHT 1
-
 typedef struct hotspot_t {
     double value;
     int id;
@@ -12,8 +10,8 @@ typedef struct hotspot_t {
 void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int test_func, Result result);
 
 int main(int argc, char *argv[]) {
-    int id, p;     // 8 byte
-    Result result; // 34 byte
+    int id, p;
+    Result result;
 
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &id);
@@ -28,12 +26,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int repeat = argc == 6 ? atoi(argv[5]) : 1; // 4 byte
+    int repeat = argc == 6 ? atoi(argv[5]) : 1;
 
-    int iteration = atoi(argv[1]);    // 4 byte
-    int dragonfly_no = atoi(argv[2]); // 4 byte
-    int dim = atoi(argv[3]);          // 4 byte
-    int test_func = atoi(argv[4]);    // 4 byte
+    int iteration = atoi(argv[1]);
+    int dragonfly_no = atoi(argv[2]);
+    int dim = atoi(argv[3]);
+    int test_func = atoi(argv[4]);
 
     result.best_position = (double *)mycalloc(dim, sizeof(double), id);
 
@@ -46,32 +44,32 @@ int main(int argc, char *argv[]) {
 
 void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int test_func, Result result) {
 
-    int seed = 72024; // 4 byte
+    int seed = 72024;
 
     srand48(seed);
 
-    double elapsed_time = 0.0; // 8 byte
-    double global_time = 0.0;  // 8 byte
+    double elapsed_time = 0.0;
+    double global_time = 0.0;
 
-    int upper_bound = 0; // 4 byte
-    int lower_bound = 0; // 4 byte
+    int upper_bound = 0;
+    int lower_bound = 0;
 
     /* Test Function */
     double (*fitness_function)(double *x, int dimension);
     fitness_function = func_obj(test_func, &upper_bound, &lower_bound);
 
     /* Init radius and max velocity */
-    double radius = (upper_bound - lower_bound) / 20.0;       // 8 byte
-    double velocity_max = (upper_bound - lower_bound) / 20.0; // 8 byte
+    double radius = (upper_bound - lower_bound) / 20.0;
+    double velocity_max = (upper_bound - lower_bound) / 20.0;
 
     /* Dragonflies for processor */
-    int dragonfly_proc_no = BLOCK_SIZE(id, p, dragonfly_no);                                  // 4 byte
-    Dragonfly *dragonflies = (Dragonfly *)mycalloc(dragonfly_proc_no, sizeof(Dragonfly), id); // 56 * 3000 = 168.000 byte
+    int dragonfly_proc_no = BLOCK_SIZE(id, p, dragonfly_no);
+    Dragonfly *dragonflies = (Dragonfly *)mycalloc(dragonfly_proc_no, sizeof(Dragonfly), id);
     init_struct_dragonfly(dragonflies, dragonfly_proc_no, dim, upper_bound, lower_bound, id, seed);
 
-    int neighbour_no = 0;                                                 // 4 byte
-    int *neighbours_index = NULL;                                         // 4 byte
-    Neighbour *neighbours = calloc(dragonfly_proc_no, sizeof(Neighbour)); //  48 * 3000 = 144.000 byte
+    int neighbour_no = 0;
+    int *neighbours_index = NULL;
+    Neighbour *neighbours = calloc(dragonfly_proc_no, sizeof(Neighbour));
     for (int i = 0; i < dragonfly_proc_no; i++) {
         neighbours[i].position = (double *)calloc(dim, sizeof(double));
         neighbours[i].velocity = (double *)calloc(dim, sizeof(double));
@@ -88,11 +86,11 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     pred_value.value = -INFINITY;
 
     /** Food & Predator Position **/
-    double *food_pos = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
-    double *pred_pos = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
+    double *food_pos = (double *)mycalloc(dim, sizeof(double), id);
+    double *pred_pos = (double *)mycalloc(dim, sizeof(double), id);
 
-    double *local_food_pos = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
-    double *local_pred_pos = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
+    double *local_food_pos = (double *)mycalloc(dim, sizeof(double), id);
+    double *local_pred_pos = (double *)mycalloc(dim, sizeof(double), id);
 
     /*********************** Local Variable ***********************/
     HotSpot local_food_value, local_pred_value; // 12 + 12 = 24 byte
@@ -105,27 +103,24 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     local_pred_value.value = -INFINITY;
 
     /** Food & Predator Distance **/
-    double *food_distance = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
-    double *pred_distance = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
+    double *food_distance = (double *)mycalloc(dim, sizeof(double), id);
+    double *pred_distance = (double *)mycalloc(dim, sizeof(double), id);
 
     /** Distance between dragonflies **/
-    double *dist = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
+    double *dist = (double *)mycalloc(dim, sizeof(double), id);
 
     /** Levy Vector **/
-    double *levy = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
+    double *levy = (double *)mycalloc(dim, sizeof(double), id);
 
     /** Behaviours Vector **/
-    double *separation = (double *)mycalloc(dim, sizeof(double), id);       // 3 * 8 = 24 byte
-    double *alignment = (double *)mycalloc(dim, sizeof(double), id);        // 3 * 8 = 24 byte
-    double *cohesion = (double *)mycalloc(dim, sizeof(double), id);         // 3 * 8 = 24 byte
-    double *food_attraction = (double *)mycalloc(dim, sizeof(double), id);  // 3 * 8 = 24 byte
-    double *pred_distraction = (double *)mycalloc(dim, sizeof(double), id); // 3 * 8 = 24 byte
-
-    double *flagUb = (double *)calloc(dim, sizeof(double));
-    double *flagLb = (double *)calloc(dim, sizeof(double));
+    double *separation = (double *)mycalloc(dim, sizeof(double), id);
+    double *alignment = (double *)mycalloc(dim, sizeof(double), id);
+    double *cohesion = (double *)mycalloc(dim, sizeof(double), id);
+    double *food_attraction = (double *)mycalloc(dim, sizeof(double), id);
+    double *pred_distraction = (double *)mycalloc(dim, sizeof(double), id);
 
     /** Define Weight **/
-#if DYNAMIC_WEIGHT
+
     // 7 * 8 = 56 byte
     double w = 0.0;
     double s = 0.0;
@@ -134,28 +129,15 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     double f = 0.0;
     double e = 0.0;
     double my_c = 0.0;
-#endif
-
-#if !DYNAMIC_WEIGHT
-    double w = drand48() * (0.9 - 0.2) + 0.2;
-    double s = 0.1;
-    double a = 0.1;
-    double c = 0.7;
-    double f = 1;
-    double e = 1;
-#endif
 
     // /** MPI_Datatype User-Defined **/
-    // MPI_Datatype MPI_POSITION_TYPE;
-    // MPI_Type_contiguous(dim, MPI_DOUBLE, &MPI_POSITION_TYPE);
-    // MPI_Type_commit(&MPI_POSITION_TYPE);
+    MPI_Datatype MPI_POSITION_TYPE;
+    MPI_Type_contiguous(dim, MPI_DOUBLE, &MPI_POSITION_TYPE);
+    MPI_Type_commit(&MPI_POSITION_TYPE);
 
-    // /** Non-Blocking AllReduce: Request & Status **/
-    // MPI_Request req;
-    // MPI_Status st;
-
-    while (1)
-        ;
+    /** Non-Blocking AllReduce: Request & Status **/
+    MPI_Request req;
+    MPI_Status st;
 
     MPI_Barrier(MPI_COMM_WORLD);
     elapsed_time = -MPI_Wtime();
@@ -187,8 +169,8 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
         MPI_Allreduce(&local_pred_value, &pred_value, 1, MPI_DOUBLE_INT, MPI_MAXLOC, MPI_COMM_WORLD);
 
         /** Broadcasting the Global Food and Global Pred position**/
-        MPI_Bcast(food_pos, dim, MPI_DOUBLE, food_value.id, MPI_COMM_WORLD);
-        MPI_Bcast(pred_pos, dim, MPI_DOUBLE, pred_value.id, MPI_COMM_WORLD);
+        MPI_Bcast(food_pos, 1, MPI_POSITION_TYPE, food_value.id, MPI_COMM_WORLD);
+        MPI_Bcast(pred_pos, 1, MPI_POSITION_TYPE, pred_value.id, MPI_COMM_WORLD);
 
         /** Add neighbours **/
         for (int df = 0; df < dragonfly_proc_no; df++) {
@@ -221,7 +203,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
 
             // free(neighbours_index), neighbours_index = NULL;
 
-#if DYNAMIC_WEIGHT
             w = 0.9 - iter * ((0.9 - 0.4) / iteration);
             my_c = 0.1 - iter * (0.1 / (iteration / 2.0));
 
@@ -233,7 +214,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
             c = 2.0 * drand48() * my_c; /** Cohesion weight          **/
             f = 2.0 * drand48();        /** Food attraction weight   **/
             e = my_c;                   /** Enemy distraction weight **/
-#endif
 
             /** Update radius **/
             radius = (double)(upper_bound - lower_bound) / 8.0 + ((upper_bound - lower_bound) * ((double)iter / (double)iteration) * 4.0);
@@ -299,9 +279,13 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
                 }
             }
 
+            double *flagUb = (double *)calloc(dim, sizeof(double));
+            double *flagLb = (double *)calloc(dim, sizeof(double));
             for (int j = 0; j < dim; j++) {
                 dragonflies[df].position[j] = (dragonflies[df].position[j] * (!(flagUb[j] + flagLb[j]))) + upper_bound * flagUb[j] + lower_bound * flagLb[j];
             }
+            free(flagLb), flagLb = NULL;
+            free(flagUb), flagUb = NULL;
 
             neighbour_no = 0;
             memset(neighbours, 0, sizeof(Neighbour) * neighbour_no);
@@ -309,9 +293,6 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
                 printf(" %f ", neighbours[df].position[i]);
             }
         }
-
-        while (1)
-            ;
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -359,7 +340,4 @@ void DA_Parallel(int id, int p, int iteration, int dragonfly_no, int dim, int te
     free(cohesion), cohesion = NULL;
     free(food_attraction), food_attraction = NULL;
     free(pred_distraction), pred_distraction = NULL;
-
-    free(flagLb), flagLb = NULL;
-    free(flagUb), flagUb = NULL;
 }
